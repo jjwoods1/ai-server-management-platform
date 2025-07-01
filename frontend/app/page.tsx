@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react';
 
-// Define the structure of our messages and plans
 type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  commands?: string[]; // Optional: AI responses can now include commands
+  commands?: string[];
 };
 
 export default function Home() {
@@ -15,14 +14,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
 
-  // This hook checks for active agents
   useEffect(() => {
     const fetchActiveAgents = async () => {
       try {
         const res = await fetch('http://127.0.0.1:8001/api/agents/active');
         const data = await res.json();
         setActiveAgentId(data.active_agent_ids?.[0] || null);
-      } catch (error) {
+      } catch {
         setActiveAgentId(null);
       }
     };
@@ -30,7 +28,20 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // This function sends a single command to the agent
+  const pollForResult = async (taskId: string, onResult: (result: string) => void) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8001/api/command/result/${taskId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'complete') {
+          clearInterval(interval);
+          onResult(data.result);
+        }
+      } catch { /* Ignore polling errors */ }
+    }, 2000);
+  };
+  
   const handleSendCommand = async (command: string, onResult: (result: string) => void) => {
     if (!activeAgentId) return;
     try {
@@ -43,27 +54,11 @@ export default function Home() {
       if (data.task_id) {
         pollForResult(data.task_id, onResult);
       }
-    } catch (error) {
+    } catch {
       onResult(`Error sending command: ${command}`);
     }
   };
-  
-  // This function polls for the result of a single command
-  const pollForResult = (taskId: string, onResult: (result: string) => void) => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`http://127.0.0.1:8001/api/command/result/${taskId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === 'complete') {
-          clearInterval(interval);
-          onResult(data.result);
-        }
-      } catch (error) { /* Ignore polling errors */ }
-    }, 2000);
-  };
 
-  // This function executes a multi-step plan
   const handleExecutePlan = async (commands: string[]) => {
     setIsLoading(true);
     for (const command of commands) {
@@ -83,7 +78,6 @@ export default function Home() {
     setIsLoading(false);
   };
 
-  // This is the main function for sending a chat message to the AI
   const handleSendMessage = async () => {
     if (input.trim() === '' || isLoading) return;
     const userMessage: Message = { role: 'user', content: input };
@@ -100,11 +94,11 @@ export default function Home() {
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.explanation,
-        commands: data.commands, // Attach the commands to the message
+        commands: data.commands,
       };
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Failed to connect to the backend:', error);
+    } catch {
+      console.error('Failed to connect to the backend');
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +107,6 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-gray-800 text-white">
       <main className="flex flex-1 flex-col">
-        {/* Header */}
         <div className="border-b border-gray-700 p-4 flex justify-between items-center">
           <div className='flex items-center gap-4'>
             <h1 className="text-xl font-bold">AI Server Assistant</h1>
@@ -122,8 +115,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* Message History */}
         <div className="flex-1 space-y-6 overflow-y-auto p-6">
           {messages.map((msg, index) => (
             <div key={index} className={`flex items-start gap-4 ${msg.role === 'user' ? 'justify-end' : ''}`}>
@@ -135,7 +126,6 @@ export default function Home() {
                 }`}
               >
                 <p>{msg.content}</p>
-                {/* If the message is from the assistant and has commands, show the button */}
                 {msg.role === 'assistant' && msg.commands && msg.commands.length > 0 && (
                   <div className="mt-4 border-t border-gray-700 pt-2">
                     <button
@@ -158,8 +148,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        {/* Chat Input */}
         <div className="border-t border-gray-700 bg-gray-900 p-4">
           <div className="relative">
             <input
