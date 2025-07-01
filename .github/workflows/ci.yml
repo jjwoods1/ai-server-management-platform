@@ -8,59 +8,52 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# This defines the jobs to be run. They will run in parallel.
+# This defines the jobs to be run.
 jobs:
   # This is the job for the backend.
   backend-ci:
-    # It will run on a virtual machine with the latest version of Ubuntu.
     runs-on: ubuntu-latest
-
+    # This line tells all 'run' steps in this job to execute inside the 'backend' folder.
+    defaults:
+      run:
+        working-directory: ./backend
+    
     steps:
-      # Step 1: Check out the repository's code.
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Set up the Python version we need.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # Step 3: Install the backend's dependencies.
       - name: Install backend dependencies
         run: |
-          cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Step 4: Run a simple check (we'll add real tests later).
       - name: Run placeholder test
         run: echo "Backend tests would run here."
 
   # This is the job for the frontend.
   frontend-ci:
-    # It will also run on an Ubuntu virtual machine.
     runs-on: ubuntu-latest
-
+    # This line tells all 'run' steps in this job to execute inside the 'frontend' folder.
+    defaults:
+      run:
+        working-directory: ./frontend
+        
     steps:
-      # Step 1: Check out the repository's code.
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Set up the Node.js version we need.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Step 3: Install the frontend's dependencies.
       - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm install
+        run: npm install
 
-      # Step 4: Run the linter to check for code quality.
       - name: Run linter
-        run: |
-          cd frontend
-          npm run lint
+        run: npm run lint
