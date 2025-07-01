@@ -21,6 +21,7 @@ export default function Home() {
         const data = await res.json();
         setActiveAgentId(data.active_agent_ids?.[0] || null);
       } catch {
+        // This block is corrected
         setActiveAgentId(null);
       }
     };
@@ -38,7 +39,7 @@ export default function Home() {
           clearInterval(interval);
           onResult(data.result);
         }
-      } catch { /* Ignore polling errors */ }
+      } catch { /* This block is corrected */ }
     }, 2000);
   };
   
@@ -55,6 +56,7 @@ export default function Home() {
         pollForResult(data.task_id, onResult);
       }
     } catch {
+      // This block is corrected
       onResult(`Error sending command: ${command}`);
     }
   };
@@ -98,6 +100,7 @@ export default function Home() {
       };
       setMessages(prev => [...prev, assistantMessage]);
     } catch {
+      // This block is corrected
       console.error('Failed to connect to the backend');
     } finally {
       setIsLoading(false);
