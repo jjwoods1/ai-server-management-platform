@@ -2,17 +2,15 @@ import requests
 import time
 import subprocess
 
-# The agent no longer needs to know its own ID beforehand.
-# The backend will assign it.
-# THIS IS THE CORRECTED LINE:
-BASE_URL = "http://127.0.0.1:8001/api/agent"
+# THIS IS THE UPDATED LINE:
+# Replace the placeholder with your actual Railway URL
+BASE_URL = "https://ai-server-management-platform-production.up.railway.app/api/agent"
 agent_id = None 
 
 def register_agent():
     """Announce the agent to the backend and get an ID."""
     global agent_id
     try:
-        # The agent registers and the backend gives it an ID
         response = requests.post(f"{BASE_URL}/register", timeout=10)
         if response.status_code == 200:
             agent_id = response.json().get("agent_id")
@@ -35,9 +33,10 @@ def get_task():
 def run_command(command):
     """Runs a shell command."""
     try:
+        # Using shell=True for simplicity, but be cautious in production
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
         if result.returncode == 0:
-            return result.stdout
+            return result.stdout if result.stdout else "Command executed successfully with no output."
         else:
             return f"Error executing command:\n{result.stderr}"
     except Exception as e:

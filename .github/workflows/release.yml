@@ -1,0 +1,46 @@
+name: Build and Release Agent
+
+# This workflow runs manually when you create a new release tag on GitHub
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on tags like v1.0, v1.1.0, etc.
+
+jobs:
+  build-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository's code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Step 3: Install dependencies, including PyInstaller
+      - name: Install dependencies
+        run: |
+          cd agent
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Build the single-file Linux executable using PyInstaller
+      - name: Build agent executable
+        run: |
+          cd agent
+          python -m PyInstaller --onefile --name=ai_agent main.py
+
+      # Step 5: Upload the built agent as an artifact to the GitHub Release
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./agent/dist/ai_agent
+          asset_name: ai_agent
+          asset_content_type: application/octet-stream
