@@ -1,19 +1,21 @@
 name: Build and Release Agent
 
-# This workflow runs manually when you create a new release tag on GitHub
+# THIS IS THE CORRECTED TRIGGER
+# This workflow now runs ONLY when you publish a new release on GitHub.
 on:
-  push:
-    tags:
-      - 'v*' # Trigger on tags like v1.0, v1.1.0, etc.
+  release:
+    types: [published]
 
 jobs:
   build-agent:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the repository's code
+      # Step 1: Check out the repository's code that matches the release tag
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       # Step 2: Set up Python
       - name: Set up Python
@@ -34,7 +36,8 @@ jobs:
           cd agent
           python -m PyInstaller --onefile --name=ai_agent main.py
 
-      # Step 5: Upload the built agent as an artifact to the GitHub Release
+      # Step 5: Upload the built agent as an asset to the GitHub Release
+      # This step will now work correctly because it's triggered by a release event.
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
