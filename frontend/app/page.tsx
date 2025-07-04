@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 
+// This is the new way we get the backend URL.
+// It will use the environment variable in production, but fall back to localhost for local development.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8001';
+
 type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -17,11 +21,10 @@ export default function Home() {
   useEffect(() => {
     const fetchActiveAgents = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8001/api/agents/active');
+        const res = await fetch(`${API_BASE_URL}/api/agents/active`);
         const data = await res.json();
         setActiveAgentId(data.active_agent_ids?.[0] || null);
-      } catch {
-        // This block is corrected
+      } catch (error) {
         setActiveAgentId(null);
       }
     };
@@ -32,21 +35,21 @@ export default function Home() {
   const pollForResult = async (taskId: string, onResult: (result: string) => void) => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8001/api/command/result/${taskId}`);
+        const res = await fetch(`${API_BASE_URL}/api/command/result/${taskId}`);
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === 'complete') {
           clearInterval(interval);
           onResult(data.result);
         }
-      } catch { /* This block is corrected */ }
+      } catch { /* Ignore polling errors */ }
     }, 2000);
   };
   
   const handleSendCommand = async (command: string, onResult: (result: string) => void) => {
     if (!activeAgentId) return;
     try {
-      const res = await fetch('http://127.0.0.1:8001/api/command', {
+      const res = await fetch(`${API_BASE_URL}/api/command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command, agent_id: activeAgentId }),
@@ -56,7 +59,6 @@ export default function Home() {
         pollForResult(data.task_id, onResult);
       }
     } catch {
-      // This block is corrected
       onResult(`Error sending command: ${command}`);
     }
   };
@@ -87,7 +89,7 @@ export default function Home() {
     setIsLoading(true);
     setInput('');
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: input }),
@@ -100,7 +102,6 @@ export default function Home() {
       };
       setMessages(prev => [...prev, assistantMessage]);
     } catch {
-      // This block is corrected
       console.error('Failed to connect to the backend');
     } finally {
       setIsLoading(false);
