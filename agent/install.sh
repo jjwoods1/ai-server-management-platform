@@ -4,8 +4,8 @@
 set -e
 
 # --- Configuration ---
-# We will replace these with your actual GitHub details later
-GITHUB_REPO="YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"
+# THIS IS THE CORRECTED LINE:
+GITHUB_REPO="jjwoods1/ai-server-management-platform"
 AGENT_NAME="ai_agent"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_NAME="ai_agent_service"
@@ -45,11 +45,10 @@ fi
 
 # 3. Detect latest agent version from GitHub Releases
 print_info "Fetching latest agent version..."
-# We use curl and jq to parse the JSON response from the GitHub API
 LATEST_TAG=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_TAG" ]; then
-    print_error "Could not fetch the latest release tag from GitHub. Please check the repository path."
+    print_error "Could not fetch the latest release tag from GitHub. Make sure a release has been published."
 fi
 print_info "Latest version is $LATEST_TAG"
 
@@ -63,13 +62,11 @@ print_info "Setting permissions..."
 chmod +x "$INSTALL_DIR/$AGENT_NAME"
 
 # 6. Create the agent configuration file
-print_info "Creating configuration..."
-CONFIG_DIR="/etc/$SERVICE_NAME"
-mkdir -p "$CONFIG_DIR"
-echo "AGENT_TOKEN=$TOKEN" > "$CONFIG_DIR/config"
+# This part is now handled by the agent itself, which reads the token from the service file.
 
 # 7. Create and enable the systemd service to run the agent in the background
 print_info "Creating systemd service..."
+# The ExecStart line now passes the token directly to the agent process
 cat << EOF > /etc/systemd/system/$SERVICE_NAME.service
 [Unit]
 Description=AI Server Management Agent
@@ -78,10 +75,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=$INSTALL_DIR/$AGENT_NAME
+ExecStart=$INSTALL_DIR/$AGENT_NAME --token=$TOKEN
 Restart=always
 RestartSec=3
-EnvironmentFile=$CONFIG_DIR/config
 
 [Install]
 WantedBy=multi-user.target

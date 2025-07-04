@@ -1,16 +1,19 @@
 import requests
 import time
 import subprocess
+import argparse # Import the argparse module
 
-# THIS IS THE UPDATED LINE:
-# Replace the placeholder with your actual Railway URL
+# The agent will get its config from command-line arguments
 BASE_URL = "https://ai-server-management-platform-production.up.railway.app/api/agent"
 agent_id = None 
+agent_token = None
 
 def register_agent():
     """Announce the agent to the backend and get an ID."""
     global agent_id
     try:
+        # The agent registers itself. The token isn't needed for registration itself,
+        # but will be used for subsequent secure communication (a future step).
         response = requests.post(f"{BASE_URL}/register", timeout=10)
         if response.status_code == 200:
             agent_id = response.json().get("agent_id")
@@ -33,7 +36,6 @@ def get_task():
 def run_command(command):
     """Runs a shell command."""
     try:
-        # Using shell=True for simplicity, but be cautious in production
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
         if result.returncode == 0:
             return result.stdout if result.stdout else "Command executed successfully with no output."
@@ -51,6 +53,14 @@ def post_result(task_id, result):
         print(f"Failed to post result for task {task_id}: {e}")
 
 if __name__ == "__main__":
+    # This part parses the --token argument passed by the install.sh script
+    parser = argparse.ArgumentParser(description="AI Server Management Agent")
+    parser.add_argument("--token", help="The one-time installation token.")
+    args = parser.parse_args()
+    agent_token = args.token
+
+    print(f"Agent starting with token: {agent_token}")
+
     while not agent_id:
         print("Attempting to register agent...")
         if register_agent():
