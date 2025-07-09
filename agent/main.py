@@ -1,20 +1,14 @@
 import requests
 import time
 import subprocess
-import argparse # Import the argparse module
 
-# The agent will get its config from command-line arguments
 BASE_URL = "https://ai-server-management-platform-production.up.railway.app/api/agent"
 agent_id = None 
-agent_token = None
 
 def register_agent():
-    """Announce the agent to the backend and get an ID."""
     global agent_id
     try:
-        # The agent registers itself. The token isn't needed for registration itself,
-        # but will be used for subsequent secure communication (a future step).
-        response = requests.post(f"{BASE_URL}/register", timeout=10)
+        response = requests.post(f"{BASE_URL}/register", timeout=15)
         if response.status_code == 200:
             agent_id = response.json().get("agent_id")
             print(f"✅ Agent registered successfully with ID: {agent_id}")
@@ -24,7 +18,6 @@ def register_agent():
     return False
 
 def get_task():
-    """Fetches a command from the backend."""
     try:
         response = requests.get(f"{BASE_URL}/task/{agent_id}", timeout=10)
         if response.status_code == 200 and response.json():
@@ -34,7 +27,6 @@ def get_task():
     return None
 
 def run_command(command):
-    """Runs a shell command."""
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
         if result.returncode == 0:
@@ -45,7 +37,6 @@ def run_command(command):
         return f"An unexpected error occurred: {str(e)}"
 
 def post_result(task_id, result):
-    """Posts the result back to the backend."""
     try:
         payload = {"result": result}
         requests.post(f"{BASE_URL}/task/{task_id}/result", json=payload, timeout=10)
@@ -53,14 +44,6 @@ def post_result(task_id, result):
         print(f"Failed to post result for task {task_id}: {e}")
 
 if __name__ == "__main__":
-    # This part parses the --token argument passed by the install.sh script
-    parser = argparse.ArgumentParser(description="AI Server Management Agent")
-    parser.add_argument("--token", help="The one-time installation token.")
-    args = parser.parse_args()
-    agent_token = args.token
-
-    print(f"Agent starting with token: {agent_token}")
-
     while not agent_id:
         print("Attempting to register agent...")
         if register_agent():
@@ -74,9 +57,7 @@ if __name__ == "__main__":
             task_id = task.get("task_id")
             command = task.get("command")
             print(f"Received task {task_id}: Running command '{command}'")
-            
             result = run_command(command)
-            
             post_result(task_id, result)
             print(f"Finished task {task_id}. Waiting for next task.")
         

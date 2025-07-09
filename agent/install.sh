@@ -4,11 +4,10 @@
 set -e
 
 # --- Configuration ---
-# THIS IS THE CORRECTED LINE:
 GITHUB_REPO="jjwoods1/ai-server-management-platform"
-AGENT_NAME="ai_agent"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_PATH="/opt/ai_agent"
 SERVICE_NAME="ai_agent_service"
+VENV_PATH="$INSTALL_PATH/.venv"
 
 # --- Helper Functions ---
 function print_info() {
@@ -25,48 +24,38 @@ function print_error() {
 }
 
 # --- Installation Logic ---
-
-# 1. Get Installation Token from command line argument
-TOKEN=""
-if [[ "$1" == "--token="* ]]; then
-  TOKEN="${1#*=}"
-fi
-
-if [ -z "$TOKEN" ]; then
-  print_error "Installation token is missing. Please use the command from your dashboard."
-fi
-
 print_info "Starting agent installation..."
 
-# 2. Check for root privileges
+# 1. Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
   print_error "This script must be run as root. Please use 'sudo'."
 fi
 
-# 3. Detect latest agent version from GitHub Releases
-print_info "Fetching latest agent version..."
-LATEST_TAG=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# 2. Install dependencies: git, python3, and venv
+print_info "Installing required packages (git, python3, python3-venv)..."
+apt-get update
+apt-get install -y git python3 python3-venv
 
-if [ -z "$LATEST_TAG" ]; then
-    print_error "Could not fetch the latest release tag from GitHub. Make sure a release has been published."
-fi
-print_info "Latest version is $LATEST_TAG"
+# 3. Clean up any old installations
+print_info "Cleaning up previous installations..."
+systemctl stop $SERVICE_NAME.service || true
+rm -rf "$INSTALL_PATH"
+rm -f "/etc/systemd/system/$SERVICE_NAME.service"
 
-# 4. Download the agent binary
-DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/$LATEST_TAG/$AGENT_NAME"
-print_info "Downloading agent from $DOWNLOAD_URL..."
-curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/$AGENT_NAME"
+# 4. Clone the source code from GitHub
+print_info "Cloning the agent source code from GitHub..."
+git clone "https://github.com/$GITHUB_REPO.git" "$INSTALL_PATH"
 
-# 5. Make the agent executable
-print_info "Setting permissions..."
-chmod +x "$INSTALL_DIR/$AGENT_NAME"
+# 5. Create and activate a Python virtual environment
+print_info "Creating Python virtual environment at $VENV_PATH..."
+python3 -m venv "$VENV_PATH"
 
-# 6. Create the agent configuration file
-# This part is now handled by the agent itself, which reads the token from the service file.
+# 6. Install Python dependencies into the virtual environment
+print_info "Installing agent dependencies..."
+"$VENV_PATH/bin/pip" install -r "$INSTALL_PATH/agent/requirements.txt"
 
-# 7. Create and enable the systemd service to run the agent in the background
+# 7. Create and enable the systemd service
 print_info "Creating systemd service..."
-# The ExecStart line now passes the token directly to the agent process
 cat << EOF > /etc/systemd/system/$SERVICE_NAME.service
 [Unit]
 Description=AI Server Management Agent
@@ -75,9 +64,10 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=$INSTALL_DIR/$AGENT_NAME --token=$TOKEN
+# We run the main.py script using the python from our virtual environment
+ExecStart=$VENV_PATH/bin/python $INSTALL_PATH/agent/main.py
 Restart=always
-RestartSec=3
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
