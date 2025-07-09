@@ -36,17 +36,18 @@ print_info "Installing required packages (git, python3, python3-venv)..."
 apt-get update
 apt-get install -y git python3 python3-venv
 
-# 3. Clean up any old installations
+# 3. Clean up any old installations to ensure a fresh start
 print_info "Cleaning up previous installations..."
 systemctl stop $SERVICE_NAME.service || true
 rm -rf "$INSTALL_PATH"
 rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+systemctl daemon-reload
 
 # 4. Clone the source code from GitHub
 print_info "Cloning the agent source code from GitHub..."
 git clone "https://github.com/$GITHUB_REPO.git" "$INSTALL_PATH"
 
-# 5. Create and activate a Python virtual environment
+# 5. Create a Python virtual environment
 print_info "Creating Python virtual environment at $VENV_PATH..."
 python3 -m venv "$VENV_PATH"
 
@@ -68,6 +69,7 @@ User=root
 ExecStart=$VENV_PATH/bin/python $INSTALL_PATH/agent/main.py
 Restart=always
 RestartSec=5
+WorkingDirectory=$INSTALL_PATH/agent
 
 [Install]
 WantedBy=multi-user.target
