@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8
 type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  commands?: string[];
+  commands?: string[]; // Optional: AI responses can now include commands
 };
 
 export default function Home() {
@@ -18,13 +18,14 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
 
+  // This hook checks for active agents
   useEffect(() => {
     const fetchActiveAgents = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/agents/active`);
         const data = await res.json();
         setActiveAgentId(data.active_agent_ids?.[0] || null);
-      } catch (error) {
+      } catch {
         setActiveAgentId(null);
       }
     };
@@ -32,20 +33,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const pollForResult = async (taskId: string, onResult: (result: string) => void) => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/command/result/${taskId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === 'complete') {
-          clearInterval(interval);
-          onResult(data.result);
-        }
-      } catch { /* Ignore polling errors */ }
-    }, 2000);
-  };
-  
+  // This function sends a single command to the agent
   const handleSendCommand = async (command: string, onResult: (result: string) => void) => {
     if (!activeAgentId) return;
     try {
@@ -62,7 +50,23 @@ export default function Home() {
       onResult(`Error sending command: ${command}`);
     }
   };
+  
+  // This function polls for the result of a single command
+  const pollForResult = (taskId: string, onResult: (result: string) => void) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/command/result/${taskId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'complete') {
+          clearInterval(interval);
+          onResult(data.result);
+        }
+      } catch { /* Ignore polling errors */ }
+    }, 2000);
+  };
 
+  // This function executes a multi-step plan
   const handleExecutePlan = async (commands: string[]) => {
     setIsLoading(true);
     for (const command of commands) {
@@ -82,6 +86,7 @@ export default function Home() {
     setIsLoading(false);
   };
 
+  // This is the main function for sending a chat message to the AI
   const handleSendMessage = async () => {
     if (input.trim() === '' || isLoading) return;
     const userMessage: Message = { role: 'user', content: input };
