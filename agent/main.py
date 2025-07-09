@@ -23,10 +23,12 @@ def register_agent():
     global agent_id
     log_message("Attempting to register agent via curl...")
     
+    # We add a --max-time flag to curl to prevent it from hanging indefinitely
     command = f"curl --max-time 15 -sS -X POST {BASE_URL}/register"
     
     try:
         log_message(f"Executing command: {command}")
+        # We add a timeout to the subprocess call as a fallback
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True, timeout=20)
         
         log_message(f"Curl command finished. STDOUT: {result.stdout}")
