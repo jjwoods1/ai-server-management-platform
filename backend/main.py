@@ -6,35 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, List
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import OperationalError
-import time
 
 # --- Setup and Config ---
 load_dotenv()
 
-# --- Database Connection ---
-DATABASE_URL = os.environ.get("DATABASE_URL")
-engine = None
-if DATABASE_URL:
-    engine = create_engine(DATABASE_URL)
-else:
-    print("❌ DATABASE_URL not found. Please set it in your environment.")
-    exit(1)
+try:
+    genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+except TypeError:
+    print("❌ GOOGLE_API_KEY not found. Please ensure it is set in your environment.")
+    # We don't exit here anymore, the chat endpoint will just fail.
 
-
-def check_db_connection():
-    for i in range(5):
-        try:
-            with engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
-            print(f"✅ Database connection successful on attempt {i+1}.")
-            return True
-        except Exception as e:
-            print(f"Database connection attempt {i+1} failed: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
-    return False
+# --- In-memory storage (for testing) ---
+active_agents: Dict[str, List[Dict[str, Any]]] = {}
+task_results: Dict[str, str] = {}
 
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
@@ -48,7 +32,11 @@ class TaskResult(BaseModel):
 # --- FastAPI App Setup ---
 app = FastAPI(title="AI Server Management Backend")
 
-origins = ["http://localhost:3000", "https://ai-server-management-platform.vercel.app"] # Add your Vercel URL
+# Add your Vercel URL here for production
+origins = [
+    "http://localhost:3000",
+    "https://ai-server-management-platform.vercel.app" 
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -57,21 +45,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def on_startup():
-    if not check_db_connection():
-        print("❌ Could not connect to the database after several retries. The application will start, but database operations will fail.")
-
-# --- In-memory storage ---
-active_agents: Dict[str, List[Dict[str, Any]]] = {}
-task_results: Dict[str, str] = {}
-
 # --- API Endpoints ---
-
 @app.get("/")
 def read_root():
-    # This is the updated, simpler version. It no longer talks to the database.
-    # This acts as a simple, reliable health check.
     return {"status": "ok", "message": "Backend is running."}
 
 @app.post("/api/chat")
