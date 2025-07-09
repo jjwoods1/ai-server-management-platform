@@ -5,43 +5,38 @@ on:
     types: [published]
 
 jobs:
-  build-agent:
+  build-and-release:
     runs-on: ubuntu-latest
-
-    # THIS IS THE FIX
-    # We are explicitly giving this job permission to write to the repository's
-    # contents, which is required to upload a release asset.
     permissions:
-      contents: write
+      contents: write # This permission is required to upload assets
 
     steps:
+      # Step 1: Check out the repository's code
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Step 2: Build the Linux executable using a specialized action
+      # This action handles all the complexities of creating a proper Linux binary.
+      - name: Build with PyInstaller for Linux
+        uses: cdrx/pyinstaller-action@v1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          # The path to our agent's main script
+          path: ./agent
+          # The name of the final executable file
+          name: ai_agent
+          # The script to build
+          spec: main.py
+          # Ensure it's a single file
+          args: --onefile
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          cd agent
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Build agent executable
-        run: |
-          cd agent
-          python -m PyInstaller --onefile --name=ai_agent main.py
-
+      # Step 3: Upload the correctly built agent to the GitHub Release
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./agent/dist/ai_agent
+          # The path where the build action places the Linux executable
+          asset_path: ./agent/dist/linux/ai_agent
           asset_name: ai_agent
           asset_content_type: application/octet-stream
