@@ -1,7 +1,5 @@
 name: Build and Release Agent
 
-# THIS IS THE CORRECTED TRIGGER
-# This workflow now runs ONLY when you publish a new release on GitHub.
 on:
   release:
     types: [published]
@@ -10,34 +8,34 @@ jobs:
   build-agent:
     runs-on: ubuntu-latest
 
+    # THIS IS THE FIX
+    # We are explicitly giving this job permission to write to the repository's
+    # contents, which is required to upload a release asset.
+    permissions:
+      contents: write
+
     steps:
-      # Step 1: Check out the repository's code that matches the release tag
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
 
-      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # Step 3: Install dependencies, including PyInstaller
       - name: Install dependencies
         run: |
           cd agent
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Step 4: Build the single-file Linux executable using PyInstaller
       - name: Build agent executable
         run: |
           cd agent
           python -m PyInstaller --onefile --name=ai_agent main.py
 
-      # Step 5: Upload the built agent as an asset to the GitHub Release
-      # This step will now work correctly because it's triggered by a release event.
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
