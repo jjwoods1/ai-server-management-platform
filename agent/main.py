@@ -13,16 +13,10 @@ def register_agent():
     """
     global agent_id
     
-    # We build the curl command as a string
-    # -sS: Silent but show errors
-    # -X POST: Make a POST request
-    # -k: This is equivalent to verify=False, it ignores SSL errors
     command = f"curl -sS -X POST -k {BASE_URL}/register"
     
     try:
-        # We run the command using subprocess
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        # The response from the server will be in result.stdout
         response_data = json.loads(result.stdout)
         
         agent_id = response_data.get("agent_id")
@@ -31,8 +25,7 @@ def register_agent():
             return True
 
     except subprocess.CalledProcessError as e:
-        print(f"❌ Curl command failed with a non-zero exit code.")
-        print(f"❌ STDERR: {e.stderr}")
+        print(f"❌ Curl command failed. STDERR: {e.stderr}")
     except json.JSONDecodeError:
         print(f"❌ Failed to decode JSON response from backend.")
     except Exception as e:
@@ -40,8 +33,20 @@ def register_agent():
         
     return False
 
+def get_task():
+    """Fetches a command from the backend."""
+    try:
+        command = f"curl -sS -k {BASE_URL}/task/{agent_id}"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        response_data = json.loads(result.stdout)
+        if response_data:
+            return response_data
+    except Exception:
+        pass # It's normal for this to fail if there are no tasks
+    return None
+
 def run_command(command_to_run):
-    # This function remains the same
+    """Runs a shell command."""
     try:
         result = subprocess.run(command_to_run, shell=True, capture_output=True, text=True, check=False)
         if result.returncode == 0:
@@ -51,17 +56,36 @@ def run_command(command_to_run):
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
 
-# The rest of the agent logic for getting and posting tasks is no longer needed
-# for this simplified test, as the registration is the only part that is failing.
-# We will focus solely on getting it connected.
+def post_result(task_id, result_text):
+    """Posts the result back to the backend."""
+    try:
+        # We need to properly escape the result text for the JSON payload
+        escaped_result = json.dumps(result_text)
+        payload = f'{{"result": {escaped_result}}}'
+        command = f"curl -sS -X POST -k -H 'Content-Type: application/json' -d '{payload}' {BASE_URL}/task/{task_id}/result"
+        subprocess.run(command, shell=True, check=True)
+    except Exception as e:
+        print(f"Failed to post result for task {task_id}: {e}")
 
+# This is the main execution block. All indentation has been corrected.
 if __name__ == "__main__":
-    print("Agent starting with curl registration method...")
-    time.sleep(2) 
+    print("Agent starting...")
     
-    # We will try to register just once and then exit so we can see the log.
-    if register_agent():
-        print("✅ REGISTRATION SUCCESSFUL. The agent would now start its main loop.")
-    else:
-        print("❌ REGISTRATION FAILED. Please check the errors above.")
+    while not agent_id:
+        print("Attempting to register agent...")
+        if register_agent():
+            break
+        time.sleep(5)
 
+    print("Agent is online and waiting for tasks.")
+    while True:
+        task = get_task()
+        if task:
+            task_id = task.get("task_id")
+            command = task.get("command")
+            print(f"Received task {task_id}: Running command '{command}'")
+            result = run_command(command)
+            post_result(task_id, result)
+            print(f"Finished task {task_id}. Waiting for next task.")
+        
+        time.sleep(5)
