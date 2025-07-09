@@ -5,7 +5,8 @@ import traceback
 
 # --- Configuration ---
 LOG_FILE = "/tmp/ai_agent.log"
-BASE_URL = "https://ai-server-management-platform-production.up.railway.app/api/agent"
+# THIS IS THE CORRECTED LINE, POINTING TO YOUR LIVE RENDER BACKEND
+BASE_URL = "https://ai-server-backend.onrender.com/api/agent"
 agent_id = None
 
 # --- Custom Logger ---
@@ -22,12 +23,10 @@ def register_agent():
     global agent_id
     log_message("Attempting to register agent via curl...")
     
-    # We add a --max-time flag to curl to prevent it from hanging indefinitely
-    command = f"curl --max-time 15 -sS -X POST -k {BASE_URL}/register"
+    command = f"curl --max-time 15 -sS -X POST {BASE_URL}/register"
     
     try:
         log_message(f"Executing command: {command}")
-        # We add a timeout to the subprocess call as a fallback
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True, timeout=20)
         
         log_message(f"Curl command finished. STDOUT: {result.stdout}")
@@ -59,7 +58,7 @@ def register_agent():
 def get_task():
     """Fetches a command from the backend."""
     try:
-        command = f"curl --max-time 10 -sS -k {BASE_URL}/task/{agent_id}"
+        command = f"curl --max-time 10 -sS {BASE_URL}/task/{agent_id}"
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True, timeout=15)
         response_data = json.loads(result.stdout)
         if response_data:
@@ -84,7 +83,7 @@ def post_result(task_id, result_text):
     try:
         escaped_result = json.dumps(result_text)
         payload = f'{{"result": {escaped_result}}}'
-        command = f"curl --max-time 15 -sS -X POST -k -H 'Content-Type: application/json' -d '{payload}' {BASE_URL}/task/{task_id}/result"
+        command = f"curl --max-time 15 -sS -X POST -H 'Content-Type: application/json' -d '{payload}' {BASE_URL}/task/{task_id}/result"
         subprocess.run(command, shell=True, check=True, timeout=20)
     except Exception as e:
         log_message(f"Failed to post result for task {task_id}: {e}")
