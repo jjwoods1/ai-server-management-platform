@@ -1,91 +1,65 @@
 import time
 import subprocess
 import json
+import traceback
 
-# We still define the URL here
+# --- Configuration ---
+LOG_FILE = "/tmp/ai_agent.log"
 BASE_URL = "https://ai-server-management-platform-production.up.railway.app/api/agent"
-agent_id = None 
+agent_id = None
 
+# --- Custom Logger ---
+def log_message(message):
+    """Writes a message to our custom log file with a timestamp."""
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    with open(LOG_FILE, "a") as f:
+        f.write(f"[{timestamp}] {message}\n")
+    print(message) # Also print to standard output
+
+# --- Agent Functions ---
 def register_agent():
-    """
-    Announce the agent to the backend using the system's curl command.
-    This is the most reliable method and bypasses Python's SSL/requests stack.
-    """
+    """Announce the agent to the backend using curl."""
     global agent_id
+    log_message("Attempting to register agent via curl...")
     
     command = f"curl -sS -X POST -k {BASE_URL}/register"
     
     try:
+        log_message(f"Executing command: {command}")
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        
+        log_message(f"Curl command finished. STDOUT: {result.stdout}")
         response_data = json.loads(result.stdout)
         
         agent_id = response_data.get("agent_id")
         if agent_id:
-            print(f"✅ Agent registered successfully using curl with ID: {agent_id}")
+            log_message(f"✅ Agent registered successfully with ID: {agent_id}")
             return True
+        else:
+            log_message("❌ Registration failed: 'agent_id' not found in response.")
+            return False
 
     except subprocess.CalledProcessError as e:
-        print(f"❌ Curl command failed. STDERR: {e.stderr}")
+        log_message(f"❌ Curl command failed with a non-zero exit code.")
+        log_message(f"❌ STDERR: {e.stderr}")
     except json.JSONDecodeError:
-        print(f"❌ Failed to decode JSON response from backend.")
-    except Exception as e:
-        print(f"❌ An unexpected error occurred during registration: {e}")
-        
+        log_message(f"❌ Failed to decode JSON response from backend.")
+        log_message(f"Raw response was: {result.stdout}")
+    except Exception:
+        # Catch any other exception and write the full traceback to the log
+        log_message("❌ An unexpected error occurred during registration.")
+        with open(LOG_FILE, "a") as f:
+            traceback.print_exc(file=f)
+            
     return False
 
-def get_task():
-    """Fetches a command from the backend."""
-    try:
-        command = f"curl -sS -k {BASE_URL}/task/{agent_id}"
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        response_data = json.loads(result.stdout)
-        if response_data:
-            return response_data
-    except Exception:
-        pass # It's normal for this to fail if there are no tasks
-    return None
-
-def run_command(command_to_run):
-    """Runs a shell command."""
-    try:
-        result = subprocess.run(command_to_run, shell=True, capture_output=True, text=True, check=False)
-        if result.returncode == 0:
-            return result.stdout if result.stdout else "Command executed successfully with no output."
-        else:
-            return f"Error executing command:\n{result.stderr}"
-    except Exception as e:
-        return f"An unexpected error occurred: {str(e)}"
-
-def post_result(task_id, result_text):
-    """Posts the result back to the backend."""
-    try:
-        # We need to properly escape the result text for the JSON payload
-        escaped_result = json.dumps(result_text)
-        payload = f'{{"result": {escaped_result}}}'
-        command = f"curl -sS -X POST -k -H 'Content-Type: application/json' -d '{payload}' {BASE_URL}/task/{task_id}/result"
-        subprocess.run(command, shell=True, check=True)
-    except Exception as e:
-        print(f"Failed to post result for task {task_id}: {e}")
-
-# This is the main execution block. All indentation has been corrected.
+# --- Main Execution Block ---
 if __name__ == "__main__":
-    print("Agent starting...")
+    log_message("Agent script started.")
     
-    while not agent_id:
-        print("Attempting to register agent...")
-        if register_agent():
-            break
-        time.sleep(5)
+    # We will only try to register once and then exit so we can inspect the log.
+    if register_agent():
+        log_message("✅ REGISTRATION SUCCESSFUL.")
+    else:
+        log_message("❌ REGISTRATION FAILED. See logs for details.")
 
-    print("Agent is online and waiting for tasks.")
-    while True:
-        task = get_task()
-        if task:
-            task_id = task.get("task_id")
-            command = task.get("command")
-            print(f"Received task {task_id}: Running command '{command}'")
-            result = run_command(command)
-            post_result(task_id, result)
-            print(f"Finished task {task_id}. Waiting for next task.")
-        
-        time.sleep(5)
