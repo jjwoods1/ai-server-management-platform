@@ -9,15 +9,14 @@ def register_agent():
     """Announce the agent to the backend and get an ID."""
     global agent_id
     try:
-        response = requests.post(f"{BASE_URL}/register", timeout=15)
+        # THIS IS THE FIX: We are adding verify=False to bypass SSL certificate checks.
+        response = requests.post(f"{BASE_URL}/register", timeout=15, verify=False)
         
-        # This is the new, more detailed error handling
         if response.status_code == 200:
             agent_id = response.json().get("agent_id")
             print(f"✅ Agent registered successfully with ID: {agent_id}")
             return True
         else:
-            # If the status code is not 200, print the error details
             print(f"❌ Backend returned an error. Status Code: {response.status_code}")
             print(f"❌ Response Body: {response.text}")
             return False
@@ -28,7 +27,8 @@ def register_agent():
 
 def get_task():
     try:
-        response = requests.get(f"{BASE_URL}/task/{agent_id}", timeout=10)
+        # We add verify=False here as well for consistency.
+        response = requests.get(f"{BASE_URL}/task/{agent_id}", timeout=10, verify=False)
         if response.status_code == 200 and response.json():
             return response.json()
     except requests.exceptions.RequestException:
@@ -48,11 +48,16 @@ def run_command(command):
 def post_result(task_id, result):
     try:
         payload = {"result": result}
-        requests.post(f"{BASE_URL}/task/{task_id}/result", json=payload, timeout=10)
+        # And here.
+        requests.post(f"{BASE_URL}/task/{task_id}/result", json=payload, timeout=10, verify=False)
     except requests.exceptions.RequestException as e:
         print(f"Failed to post result for task {task_id}: {e}")
 
 if __name__ == "__main__":
+    print("Agent starting...")
+    # Add a small delay to allow network to be ready on server boot
+    time.sleep(5) 
+    
     while not agent_id:
         print("Attempting to register agent...")
         if register_agent():
