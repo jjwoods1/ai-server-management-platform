@@ -31,10 +31,10 @@ if [ "$(id -u)" -ne 0 ]; then
   print_error "This script must be run as root. Please use 'sudo'."
 fi
 
-# 2. Install dependencies: git, python3, and venv
-print_info "Installing required packages (git, python3, python3-venv)..."
+# 2. Install dependencies: git, python3, venv, and now curl
+print_info "Installing required packages (git, python3, python3-venv, curl)..."
 apt-get update
-apt-get install -y git python3 python3-venv
+apt-get install -y git python3 python3-venv curl
 
 # 3. Clean up any old installations to ensure a fresh start
 print_info "Cleaning up previous installations..."
@@ -65,7 +65,6 @@ After=network.target
 [Service]
 Type=simple
 User=root
-# We run the main.py script using the python from our virtual environment
 ExecStart=$VENV_PATH/bin/python $INSTALL_PATH/agent/main.py
 Restart=always
 RestartSec=5
