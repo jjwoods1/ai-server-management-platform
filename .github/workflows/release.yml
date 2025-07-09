@@ -18,7 +18,8 @@ jobs:
       # Step 2: Build the Linux executable using a specialized action
       # This action handles all the complexities of creating a proper Linux binary.
       - name: Build with PyInstaller for Linux
-        uses: cdrx/pyinstaller-action@v1
+        # THIS IS THE CORRECTED LINE - using the latest version of the action
+        uses: cdrx/pyinstaller-action@v2
         with:
           # The path to our agent's main script
           path: ./agent
